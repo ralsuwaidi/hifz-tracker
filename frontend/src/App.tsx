@@ -11,6 +11,9 @@ import { AllPagesTab } from "./components/AllPagesTab";
 import { RatingSheet } from "./components/RatingSheet";
 import { GridPageSheet } from "./components/GridPageSheet";
 import { SignIn } from "./components/SignIn";
+import { StatsTab } from "./components/StatsTab";
+
+type Tab = "today" | "pages" | "stats";
 
 function Loading({ label }: { label: string }) {
   return (
@@ -28,9 +31,10 @@ export default function App() {
   const userId = session?.user.id ?? null;
   const { pages, done, loading, error, markDone, setStatus } = useHifzData(userId);
 
-  const [tab, setTab] = useState<"today" | "pages">("today");
+  const [tab, setTab] = useState<Tab>("today");
   const [ratingPage, setRatingPage] = useState<number | null>(null);
   const [gridPage, setGridPage] = useState<number | null>(null);
+  const [statsRefresh, setStatsRefresh] = useState(0);
 
   const today = useMemo(
     () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
@@ -39,6 +43,7 @@ export default function App() {
 
   const onMarkDone = async (pg: number) => {
     await markDone(pg);
+    setStatsRefresh(n => n + 1);
     setRatingPage(pg);
   };
 
@@ -59,7 +64,7 @@ export default function App() {
   }, {});
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+    <div className="app-shell">
       <Header
         today={today}
         email={session.user.email ?? null}
@@ -68,7 +73,7 @@ export default function App() {
       <StatPills counts={counts} />
 
       <div style={{ display: "flex", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--bs)" }}>
-        {([["today", "Session"], ["pages", "All Pages"]] as const).map(([t, l]) => (
+        {([["today", "Session"], ["pages", "All Pages"], ["stats", "Stats"]] as const).map(([t, l]) => (
           <button key={t} className={`tab${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
             {l}
           </button>
@@ -86,6 +91,9 @@ export default function App() {
       )}
       {tab === "pages" && (
         <AllPagesTab pages={pages} onPickPage={setGridPage} />
+      )}
+      {tab === "stats" && (
+        <StatsTab refreshKey={statsRefresh} />
       )}
 
       {ratingPage !== null && (

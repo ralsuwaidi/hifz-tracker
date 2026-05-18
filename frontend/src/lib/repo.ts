@@ -8,13 +8,16 @@ type PageRow = {
   last_reviewed: string | null;
 };
 
-function todayDate(): string {
-  // Local-date ISO (YYYY-MM-DD), not UTC — "today" should match the user's wall clock.
-  const d = new Date();
+// Local-date ISO (YYYY-MM-DD), not UTC — "today" should match the user's wall clock.
+export function formatLocalDate(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function todayDate(): string {
+  return formatLocalDate();
 }
 
 export async function ensureSeeded(): Promise<void> {
@@ -66,6 +69,21 @@ export async function markPageDone(
       { onConflict: "user_id,done_date,page_number" },
     );
   if (e2) throw e2;
+}
+
+export async function loadDailyDoneCounts(days: number): Promise<Record<string, number>> {
+  const start = new Date();
+  start.setDate(start.getDate() - (days - 1));
+  const { data, error } = await supabase
+    .from("daily_done")
+    .select("done_date")
+    .gte("done_date", formatLocalDate(start));
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const r of (data ?? []) as { done_date: string }[]) {
+    counts[r.done_date] = (counts[r.done_date] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function loadDoneToday(): Promise<Record<number, true>> {

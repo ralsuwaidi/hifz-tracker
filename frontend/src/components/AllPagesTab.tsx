@@ -13,7 +13,7 @@ export function AllPagesTab({ pages, onPickPage }: Props) {
       <div style={{ fontSize: 12, color: "var(--t3)", marginBottom: 14 }}>
         Tap a page to update its status
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+      <div className="pgrid">
         {Array.from({ length: TOTAL_PAGES }, (_, i) => i + 1).map(n => {
           const st = STATUSES[pages[n]?.status ?? "new"];
           return (
