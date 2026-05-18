@@ -1,0 +1,109 @@
+import { useMemo, useState } from "react";
+import { useAuth } from "./hooks/useAuth";
+import { useHifzData } from "./hooks/useHifzData";
+import { supabase } from "./lib/supabase";
+import { buildSession } from "./lib/session";
+import type { Status } from "./constants";
+import { Header } from "./components/Header";
+import { StatPills } from "./components/StatPills";
+import { SessionTab } from "./components/SessionTab";
+import { AllPagesTab } from "./components/AllPagesTab";
+import { RatingSheet } from "./components/RatingSheet";
+import { GridPageSheet } from "./components/GridPageSheet";
+import { SignIn } from "./components/SignIn";
+
+function Loading({ label }: { label: string }) {
+  return (
+    <div style={{
+      background: "var(--bg)", height: "100vh",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <span style={{ color: "var(--t3)", fontSize: 13 }}>{label}</span>
+    </div>
+  );
+}
+
+export default function App() {
+  const { session, ready } = useAuth();
+  const userId = session?.user.id ?? null;
+  const { pages, done, loading, error, markDone, setStatus } = useHifzData(userId);
+
+  const [tab, setTab] = useState<"today" | "pages">("today");
+  const [ratingPage, setRatingPage] = useState<number | null>(null);
+  const [gridPage, setGridPage] = useState<number | null>(null);
+
+  const today = useMemo(
+    () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+    [],
+  );
+
+  const onMarkDone = async (pg: number) => {
+    await markDone(pg);
+    setRatingPage(pg);
+  };
+
+  const onUpdateStatus = async (pg: number, status: Status) => {
+    await setStatus(pg, status);
+    setRatingPage(null);
+    setGridPage(null);
+  };
+
+  if (!ready) return <Loading label="…" />;
+  if (!session) return <SignIn />;
+  if (loading || !pages) return <Loading label="Loading…" />;
+
+  const session_items = buildSession(pages);
+  const counts = Object.values(pages).reduce<Partial<Record<Status, number>>>((a, p) => {
+    a[p.status] = (a[p.status] ?? 0) + 1;
+    return a;
+  }, {});
+
+  return (
+    <div style={{ background: "var(--bg)", minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+      <Header
+        today={today}
+        email={session.user.email ?? null}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+      <StatPills counts={counts} />
+
+      <div style={{ display: "flex", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--bs)" }}>
+        {([["today", "Session"], ["pages", "All Pages"]] as const).map(([t, l]) => (
+          <button key={t} className={`tab${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ padding: "10px 20px", color: "#E5484D", fontSize: 12 }}>
+          {error}
+        </div>
+      )}
+
+      {tab === "today" && (
+        <SessionTab session={session_items} done={done} onMarkDone={onMarkDone} />
+      )}
+      {tab === "pages" && (
+        <AllPagesTab pages={pages} onPickPage={setGridPage} />
+      )}
+
+      {ratingPage !== null && (
+        <RatingSheet
+          page={ratingPage}
+          pages={pages}
+          onPick={s => onUpdateStatus(ratingPage, s)}
+          onDismiss={() => setRatingPage(null)}
+        />
+      )}
+      {gridPage !== null && (
+        <GridPageSheet
+          page={gridPage}
+          pages={pages}
+          onPick={s => onUpdateStatus(gridPage, s)}
+          onDismiss={() => setGridPage(null)}
+        />
+      )}
+    </div>
+  );
+}

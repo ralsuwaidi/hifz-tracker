@@ -1,0 +1,401 @@
+import { useState, useEffect, useCallback } from "react";
+
+const PAGE_SECS = 80;
+
+const STATUSES = {
+  red:     { label: "Forgotten",    color: "#E5484D", reps: 10 },
+  ram:     { label: "RAM",          color: "#E07B39", reps: 4  },
+  trigger: { label: "Trigger",      color: "#52A8FF", reps: 1  },
+  cold:    { label: "Cold Storage", color: "#46A758", reps: 1  },
+  new:     { label: "Not Started",  color: "#AAAAAA", reps: 0  },
+};
+
+const STATUS_ORDER = ["red", "ram", "trigger", "cold", "new"];
+
+function makeDefaultPages() {
+  const p = {};
+  for (let i = 1; i <= 48; i++) p[i] = { status: "new", lastReviewed: null };
+  [18, 26].forEach(n => { p[n].status = "red"; });
+  [13, 14, 22, 23, 24].forEach(n => { p[n].status = "ram"; });
+  [7, 9, 15, 17, 19, 25, 27].forEach(n => { p[n].status = "trigger"; });
+  [2, 3, 4, 5, 6, 8, 10, 11, 12, 16, 20, 21].forEach(n => { p[n].status = "cold"; });
+  return p;
+}
+
+function daysSince(iso) {
+  if (!iso) return 999;
+  return (Date.now() - new Date(iso)) / 86400000;
+}
+
+function fmt(secs) {
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+function buildSession(pages) {
+  const by = { red: [], ram: [], trigger: [], cold: [] };
+  Object.entries(pages).forEach(([n, d]) => {
+    if (by[d.status]) by[d.status].push({ n: +n, ...d });
+  });
+  const sess = [];
+  by.red.sort((a, b) => a.n - b.n).forEach(p => sess.push({ page: p.n, status: "red", reps: 10 }));
+  by.ram.sort((a, b) => a.n - b.n).forEach(p => sess.push({ page: p.n, status: "ram", reps: 4 }));
+  by.trigger.sort((a, b) => daysSince(a.lastReviewed) > daysSince(b.lastReviewed) ? -1 : 1)
+    .slice(0, 4).forEach(p => sess.push({ page: p.n, status: "trigger", reps: 1 }));
+  by.cold.sort((a, b) => daysSince(a.lastReviewed) > daysSince(b.lastReviewed) ? -1 : 1)
+    .slice(0, 3).forEach(p => sess.push({ page: p.n, status: "cold", reps: 1 }));
+  return sess;
+}
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0F0F11;
+    --s1: #161618;
+    --s2: #1C1C1F;
+    --s3: #222226;
+    --b:  #2A2A2E;
+    --bs: #1E1E22;
+    --t:  #E2E2E6;
+    --t2: #8A8A96;
+    --t3: #4A4A56;
+    --ac: #7C6CF0;
+    --f:  'DM Sans', system-ui, sans-serif;
+    --m:  'DM Mono', monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #FFFFFF;
+      --s1: #F7F7F5;
+      --s2: #EFEFED;
+      --s3: #E5E5E2;
+      --b:  #D5D5D2;
+      --bs: #E9E9E6;
+      --t:  #191919;
+      --t2: #6B6B6B;
+      --t3: #A8A8A8;
+      --ac: #6B5CE7;
+    }
+  }
+  body { background: var(--bg); font-family: var(--f); color: var(--t); -webkit-font-smoothing: antialiased; }
+  button { font-family: var(--f); cursor: pointer; }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--b); border-radius: 2px; }
+
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    height: 42px; padding: 0 20px;
+    border-bottom: 1px solid var(--bs);
+    transition: background 0.12s;
+  }
+  .row:hover { background: var(--s2); }
+  .row.done { opacity: 0.35; pointer-events: none; }
+
+  .cb {
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 1px solid var(--b); background: none;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 10px; color: transparent;
+    transition: all 0.12s;
+  }
+  .cb:hover { border-color: var(--t3); }
+  .cb.ticked { background: var(--s2); border-color: var(--b); color: var(--t3); }
+
+  .pcell {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 50px; gap: 5px;
+    border: 1px solid var(--bs); border-radius: 6px;
+    background: var(--s1); cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .pcell:hover { background: var(--s2); border-color: var(--b); }
+  .pcell:active { transform: scale(0.95); }
+
+  .tab { background: none; border: none; padding: 11px 0; font-size: 13px; font-weight: 500;
+    color: var(--t3); border-bottom: 1.5px solid transparent; transition: color 0.15s, border-color 0.15s; }
+  .tab.on { color: var(--t); border-bottom-color: var(--t); }
+
+  .sopt {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: 1px solid transparent; border-radius: 7px;
+    padding: 9px 12px; font-size: 13px; color: var(--t2); text-align: left;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .sopt:hover { background: var(--s2); color: var(--t); }
+  .sopt.on { background: var(--s2); border-color: var(--b); color: var(--t); }
+
+  .sheet { animation: up 0.22s cubic-bezier(0.32,0.72,0,1); }
+  @keyframes up { from { transform: translateY(10px); opacity: 0; } }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 20px;
+    background: var(--s2); border: 1px solid var(--bs);
+    font-size: 11px; color: var(--t2); white-space: nowrap;
+  }
+  .slabel {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+    color: var(--t3); text-transform: uppercase;
+    padding: 14px 20px 6px;
+    display: flex; align-items: center; gap: 7px;
+  }
+`;
+
+function Dot({ color, size = 7 }) {
+  return <span style={{ width: size, height: size, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />;
+}
+
+export default function App() {
+  const [pages, setPages] = useState(null);
+  const [done, setDone] = useState({});
+  const [tab, setTab] = useState("today");
+  const [ratingPage, setRatingPage] = useState(null);
+  const [gridPage, setGridPage] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try { const s = await window.storage.get("hifz-v5"); setPages(s ? JSON.parse(s.value) : makeDefaultPages()); }
+      catch { setPages(makeDefaultPages()); }
+      try {
+        const c = await window.storage.get("hifz-done-v5");
+        if (c) { const d = JSON.parse(c.value); if (d.date === new Date().toDateString()) setDone(d.p); }
+      } catch {}
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const sp = useCallback(async p => { try { await window.storage.set("hifz-v5", JSON.stringify(p)); } catch {} }, []);
+  const sd = useCallback(async d => {
+    try { await window.storage.set("hifz-done-v5", JSON.stringify({ date: new Date().toDateString(), p: d })); } catch {}
+  }, []);
+
+  const markDone = pg => {
+    const nd = { ...done, [pg]: true }; setDone(nd); sd(nd);
+    const np = { ...pages, [pg]: { ...pages[pg], lastReviewed: new Date().toISOString() } }; setPages(np); sp(np);
+    setRatingPage(pg);
+  };
+
+  const updateStatus = (pg, status) => {
+    const np = { ...pages, [pg]: { ...pages[pg], status } }; setPages(np); sp(np);
+    setRatingPage(null); setGridPage(null);
+  };
+
+  if (loading || !pages) return (
+    <div style={{ background: "var(--bg)", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{css}</style>
+      <span style={{ color: "var(--t3)", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Loading…</span>
+    </div>
+  );
+
+  const session = buildSession(pages);
+  const totalSecs = session.reduce((a, i) => a + i.reps * PAGE_SECS, 0);
+  const doneSecs = session.filter(i => done[i.page]).reduce((a, i) => a + i.reps * PAGE_SECS, 0);
+  const pct = totalSecs ? doneSecs / totalSecs : 0;
+  const counts = Object.values(pages).reduce((a, p) => { a[p.status] = (a[p.status] || 0) + 1; return a; }, {});
+  const doneCount = session.filter(i => done[i.page]).length;
+  const today = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+  return (
+    <>
+      <style>{css}</style>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ padding: "24px 20px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+            <span style={{ color: "var(--t3)", fontSize: 12 }}>Al-Baqarah</span>
+            <span style={{ color: "var(--t3)", fontSize: 12 }}>/</span>
+            <span style={{ color: "var(--t2)", fontSize: 12, fontWeight: 500 }}>Hifz Tracker</span>
+            <span style={{ marginLeft: "auto", color: "var(--t3)", fontSize: 11, fontFamily: "var(--m)" }}>{today}</span>
+          </div>
+
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 14, marginTop: 2 }}>
+            Today's Review
+          </div>
+
+          {/* Stat pills */}
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 18 }}>
+            {STATUS_ORDER.map(s => (
+              <div key={s} className="pill">
+                <Dot color={STATUSES[s].color} size={6} />
+                <span style={{ fontFamily: "var(--m)", fontSize: 11, color: "var(--t)" }}>{counts[s] || 0}</span>
+                <span>{STATUSES[s].label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--bs)" }}>
+          {[["today", "Session"], ["pages", "All Pages"]].map(([t, l]) => (
+            <button key={t} className={`tab${tab === t ? " on" : ""}`} onClick={() => setTab(t)}>{l}</button>
+          ))}
+        </div>
+
+        {/* TODAY */}
+        {tab === "today" && (
+          <div>
+            {/* Progress */}
+            <div style={{ padding: "14px 20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: 12, color: "var(--t3)" }}>{doneCount}/{session.length} pages</span>
+                <span style={{ fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)" }}>{fmt(doneSecs)} / {fmt(totalSecs)}</span>
+              </div>
+              <div style={{ height: 2, background: "var(--bs)", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                <div style={{
+                  height: "100%", borderRadius: 2,
+                  background: pct === 1 ? "#46A758" : "var(--ac)",
+                  width: `${pct * 100}%`,
+                  transition: "width 0.45s cubic-bezier(0.4,0,0.2,1)",
+                }} />
+              </div>
+            </div>
+
+            {session.length === 0 && (
+              <div style={{ padding: "52px 20px", textAlign: "center", color: "var(--t3)", fontSize: 13 }}>
+                No active pages yet.<br />Add pages in the All Pages tab.
+              </div>
+            )}
+
+            {STATUS_ORDER.filter(s => s !== "new").map(status => {
+              const items = session.filter(i => i.status === status);
+              if (!items.length) return null;
+              const st = STATUSES[status];
+              return (
+                <div key={status}>
+                  <div className="slabel">
+                    <Dot color={st.color} size={6} />
+                    {st.label}
+                    <span style={{ color: "var(--t3)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 11 }}>
+                      · {items[0].reps}× · {fmt(items[0].reps * PAGE_SECS)} each
+                    </span>
+                  </div>
+                  {items.map(item => {
+                    const isDone = !!done[item.page];
+                    return (
+                      <div key={item.page} className={`row${isDone ? " done" : ""}`}>
+                        <button
+                          className={`cb${isDone ? " ticked" : ""}`}
+                          style={{ borderColor: isDone ? "var(--b)" : st.color + "55" }}
+                          onClick={() => !isDone && markDone(item.page)}
+                        >✓</button>
+
+                        <span style={{ fontFamily: "var(--m)", fontSize: 13, fontWeight: 500, color: isDone ? "var(--t3)" : "var(--t)", minWidth: 26, textDecoration: isDone ? "line-through" : "none" }}>
+                          {item.page}
+                        </span>
+
+                        <span style={{ fontSize: 13, color: "var(--t2)", flex: 1 }}>
+                          Page {item.page}
+                        </span>
+
+                        <span style={{ fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)", whiteSpace: "nowrap" }}>
+                          {item.reps}× · {fmt(item.reps * PAGE_SECS)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            <div style={{ height: 48 }} />
+          </div>
+        )}
+
+        {/* ALL PAGES */}
+        {tab === "pages" && (
+          <div style={{ padding: "18px 20px" }}>
+            <div style={{ fontSize: 12, color: "var(--t3)", marginBottom: 14 }}>
+              Tap a page to update its status
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+              {Array.from({ length: 48 }, (_, i) => i + 1).map(n => {
+                const st = STATUSES[pages[n].status];
+                return (
+                  <button key={n} className="pcell" onClick={() => setGridPage(n)}>
+                    <span style={{ fontFamily: "var(--m)", fontSize: 13, fontWeight: 500, color: "var(--t2)" }}>{n}</span>
+                    <Dot color={st.color} size={5} />
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 28, borderTop: "1px solid var(--bs)", paddingTop: 20 }}>
+              <div style={{ fontSize: 11, color: "var(--t3)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 12 }}>Legend</div>
+              {STATUS_ORDER.map(s => (
+                <div key={s} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <Dot color={STATUSES[s].color} />
+                  <span style={{ fontSize: 13, color: "var(--t2)", flex: 1 }}>{STATUSES[s].label}</span>
+                  {STATUSES[s].reps > 0 && (
+                    <span style={{ fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)" }}>
+                      {STATUSES[s].reps}× / session
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rating sheet */}
+        {ratingPage && (
+          <div style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "flex-end", zIndex: 300 }}
+            onClick={() => setRatingPage(null)}>
+            <div className="sheet" style={{
+              background: "var(--s1)", border: "1px solid var(--b)",
+              borderRadius: "12px 12px 0 0", padding: "20px 16px 44px", width: "100%",
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                <span style={{ fontFamily: "var(--m)", fontSize: 15, fontWeight: 600 }}>Page {ratingPage}</span>
+                <span style={{ fontSize: 12, color: "var(--t3)" }}>· marked done ✓</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--t3)", marginBottom: 14 }}>How did it feel? Update the rating:</div>
+              {STATUS_ORDER.filter(s => s !== "new").map(s => {
+                const isCur = pages[ratingPage]?.status === s;
+                return (
+                  <button key={s} className={`sopt${isCur ? " on" : ""}`} onClick={() => updateStatus(ratingPage, s)}>
+                    <Dot color={STATUSES[s].color} />
+                    <span style={{ flex: 1 }}>{STATUSES[s].label}</span>
+                    {isCur && <span style={{ fontSize: 11, color: "var(--t3)" }}>current</span>}
+                  </button>
+                );
+              })}
+              <button className="sopt" style={{ marginTop: 4 }} onClick={() => setRatingPage(null)}>
+                <span style={{ width: 7 }} />
+                Keep current rating
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Grid page sheet */}
+        {gridPage && (
+          <div style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "flex-end", zIndex: 300 }}
+            onClick={() => setGridPage(null)}>
+            <div className="sheet" style={{
+              background: "var(--s1)", border: "1px solid var(--b)",
+              borderRadius: "12px 12px 0 0", padding: "20px 16px 44px", width: "100%",
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "var(--m)", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Page {gridPage}</div>
+              <div style={{ fontSize: 13, color: "var(--t3)", marginBottom: 14 }}>Set status</div>
+              {STATUS_ORDER.map(s => {
+                const isCur = pages[gridPage]?.status === s;
+                return (
+                  <button key={s} className={`sopt${isCur ? " on" : ""}`} onClick={() => updateStatus(gridPage, s)}>
+                    <Dot color={STATUSES[s].color} />
+                    <span style={{ flex: 1 }}>{STATUSES[s].label}</span>
+                    {isCur && <span style={{ fontSize: 11, color: "var(--t3)" }}>current</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </>
+  );
+}
+
