@@ -75,7 +75,6 @@ export default function App() {
         onSignOut={() => supabase.auth.signOut()}
         onSetPassword={() => setSetPasswordOpen(true)}
       />
-      <StatPills counts={counts} />
 
       <div style={{ display: "flex", gap: 18, padding: "0 20px", borderBottom: "1px solid var(--bs)" }}>
         {([["today", "Session"], ["pages", "All Pages"], ["stats", "Stats"]] as const).map(([t, l]) => (
@@ -95,7 +94,10 @@ export default function App() {
         <SessionTab session={session_items} done={done} onMarkDone={onMarkDone} />
       )}
       {tab === "pages" && (
-        <AllPagesTab pages={pages} onPickPage={setGridPage} />
+        <>
+          <StatPills counts={counts} />
+          <AllPagesTab pages={pages} onPickPage={setGridPage} />
+        </>
       )}
       {tab === "stats" && (
         <StatsTab refreshKey={statsRefresh} />

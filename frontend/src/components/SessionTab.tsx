@@ -13,25 +13,42 @@ export function SessionTab({ session, done, onMarkDone }: Props) {
   const doneSecs = session.filter(i => done[i.page]).reduce((a, i) => a + i.reps * PAGE_SECS, 0);
   const pct = totalSecs ? doneSecs / totalSecs : 0;
   const doneCount = session.filter(i => done[i.page]).length;
+  const remaining = session.length - doneCount;
+  const allDone = session.length > 0 && remaining === 0;
 
   return (
     <div>
-      <div style={{ padding: "14px 20px 0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
-          <span style={{ fontSize: 12, color: "var(--t3)" }}>
-            {doneCount}/{session.length} pages
+      <div style={{ padding: "18px 20px 4px" }}>
+        <div style={{
+          fontSize: 10, fontWeight: 500, letterSpacing: "0.08em",
+          color: "var(--t3)", textTransform: "uppercase", marginBottom: 6,
+        }}>
+          Today
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+          <span style={{
+            fontFamily: "var(--m)", fontSize: 32, fontWeight: 600,
+            color: allDone ? "#46A758" : "var(--t)", lineHeight: 1,
+          }}>
+            {allDone ? "0" : remaining}
           </span>
-          <span style={{ fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)" }}>
-            {fmt(doneSecs)} / {fmt(totalSecs)}
+          <span style={{ fontSize: 13, color: "var(--t2)" }}>
+            {allDone ? "all done · nice" : `pages left · ${fmt(totalSecs - doneSecs)}`}
           </span>
         </div>
-        <div style={{ height: 2, background: "var(--bs)", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ height: 3, background: "var(--bs)", borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
           <div style={{
             height: "100%", borderRadius: 2,
             background: pct === 1 ? "#46A758" : "var(--ac)",
             width: `${pct * 100}%`,
             transition: "width 0.45s cubic-bezier(0.4,0,0.2,1)",
           }} />
+        </div>
+        <div style={{
+          fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)",
+          marginBottom: 14,
+        }}>
+          {doneCount}/{session.length} done · {fmt(doneSecs)} / {fmt(totalSecs)}
         </div>
       </div>
 
