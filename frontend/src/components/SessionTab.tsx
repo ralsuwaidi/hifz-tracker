@@ -14,6 +14,8 @@ export function SessionTab({ session, done, onMarkDone }: Props) {
   const pct = totalSecs ? doneSecs / totalSecs : 0;
   const doneCount = session.filter(i => done[i.page]).length;
   const remaining = session.length - doneCount;
+  const secsLeft = totalSecs - doneSecs;
+  const minsLeft = Math.ceil(secsLeft / 60);
   const allDone = session.length > 0 && remaining === 0;
 
   return (
@@ -30,10 +32,10 @@ export function SessionTab({ session, done, onMarkDone }: Props) {
             fontFamily: "var(--m)", fontSize: 32, fontWeight: 600,
             color: allDone ? "#46A758" : "var(--t)", lineHeight: 1,
           }}>
-            {allDone ? "0" : remaining}
+            {minsLeft}m
           </span>
           <span style={{ fontSize: 13, color: "var(--t2)" }}>
-            {allDone ? "all done · nice" : `pages left · ${fmt(totalSecs - doneSecs)}`}
+            {allDone ? "all done · nice" : `left · ${remaining} pages`}
           </span>
         </div>
         <div style={{ height: 3, background: "var(--bs)", borderRadius: 2, overflow: "hidden", marginBottom: 6 }}>
@@ -48,7 +50,7 @@ export function SessionTab({ session, done, onMarkDone }: Props) {
           fontSize: 11, color: "var(--t3)", fontFamily: "var(--m)",
           marginBottom: 14,
         }}>
-          {doneCount}/{session.length} done · {fmt(doneSecs)} / {fmt(totalSecs)}
+          {doneCount}/{session.length} pages · {fmt(doneSecs)} done
         </div>
       </div>
 
