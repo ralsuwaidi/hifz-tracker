@@ -20,8 +20,22 @@ export function fmt(secs: number): string {
   return s ? `${m}m ${s}s` : `${m}m`;
 }
 
-export function buildSession(pages: PagesMap): SessionItem[] {
-  const by: Record<Exclude<Status, "new">, { n: number; lastReviewed: string | null }[]> = {
+type Bucket = { n: number; lastReviewed: string | null };
+
+// Pages done today stay in the visible session; the remaining slots are
+// filled with the stalest not-done pages. This keeps the cap honest for
+// "what's left to review" while making completed work persist as ticked.
+function pickWithDone(items: Bucket[], done: Record<number, true>, limit: number): Bucket[] {
+  const doneItems = items.filter(i => done[i.n]);
+  const fresh = items
+    .filter(i => !done[i.n])
+    .sort((a, b) => daysSince(b.lastReviewed) - daysSince(a.lastReviewed))
+    .slice(0, Math.max(0, limit - doneItems.length));
+  return [...doneItems, ...fresh].sort((a, b) => a.n - b.n);
+}
+
+export function buildSession(pages: PagesMap, done: Record<number, true> = {}): SessionItem[] {
+  const by: Record<Exclude<Status, "new">, Bucket[]> = {
     red: [], ram: [], trigger: [], cold: [],
   };
   for (const [n, d] of Object.entries(pages)) {
@@ -33,13 +47,9 @@ export function buildSession(pages: PagesMap): SessionItem[] {
     .forEach(p => sess.push({ page: p.n, status: "red", reps: 10 }));
   by.ram.sort((a, b) => a.n - b.n)
     .forEach(p => sess.push({ page: p.n, status: "ram", reps: 4 }));
-  by.trigger
-    .sort((a, b) => daysSince(a.lastReviewed) > daysSince(b.lastReviewed) ? -1 : 1)
-    .slice(0, 4)
+  pickWithDone(by.trigger, done, 4)
     .forEach(p => sess.push({ page: p.n, status: "trigger", reps: 1 }));
-  by.cold
-    .sort((a, b) => daysSince(a.lastReviewed) > daysSince(b.lastReviewed) ? -1 : 1)
-    .slice(0, 3)
+  pickWithDone(by.cold, done, 3)
     .forEach(p => sess.push({ page: p.n, status: "cold", reps: 1 }));
   return sess;
 }

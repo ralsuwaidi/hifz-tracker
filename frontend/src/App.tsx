@@ -61,7 +61,7 @@ export default function App() {
   if (!session) return <SignIn />;
   if (loading || !pages) return <Loading label="Loading…" />;
 
-  const session_items = buildSession(pages);
+  const session_items = buildSession(pages, done);
   const counts = Object.values(pages).reduce<Partial<Record<Status, number>>>((a, p) => {
     a[p.status] = (a[p.status] ?? 0) + 1;
     return a;
