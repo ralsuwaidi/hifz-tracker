@@ -165,3 +165,36 @@ button { font-family: var(--f); cursor: pointer; }
   border-radius: 50%; transition: color 0.1s, background 0.1s;
 }
 .toast-x:hover { color: var(--t); background: var(--s3); }
+
+.loader-screen {
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; padding: 0 20px;
+  animation: loader-fade 0.4s ease-out;
+}
+.loader-brand {
+  display: flex; gap: 5px; margin-bottom: 4px;
+}
+.loader-dots {
+  display: inline-flex; gap: 8px;
+}
+.loader-dots span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ac);
+  animation: dot-pulse 1.3s ease-in-out infinite both;
+}
+.loader-dots span:nth-child(2) { animation-delay: 0.18s; }
+.loader-dots span:nth-child(3) { animation-delay: 0.36s; }
+.loader-label {
+  color: var(--t3); font-size: 11px;
+  font-family: var(--m); letter-spacing: 0.04em;
+}
+@keyframes dot-pulse {
+  0%, 75%, 100% { opacity: 0.2; transform: scale(0.7); }
+  35% { opacity: 1; transform: scale(1); }
+}
+@keyframes loader-fade {
+  from { opacity: 0; }
+}
