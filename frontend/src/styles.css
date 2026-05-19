@@ -136,3 +136,32 @@ button { font-family: var(--f); cursor: pointer; }
   padding: 14px 20px 6px;
   display: flex; align-items: center; gap: 7px;
 }
+
+.toast {
+  position: fixed; left: 50%; bottom: 20px;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--s2); border: 1px solid var(--b);
+  border-radius: 999px; padding: 8px 8px 8px 14px;
+  z-index: 250; max-width: calc(100% - 32px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  animation: toast-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes toast-in {
+  from { transform: translate(-50%, 12px); opacity: 0; }
+}
+.toast-action {
+  background: none; border: none;
+  color: var(--ac); font-size: 12px; font-weight: 500;
+  padding: 4px 8px; margin-left: 4px;
+  border-radius: 6px; transition: background 0.1s;
+}
+.toast-action:hover { background: var(--s3); }
+.toast-x {
+  background: none; border: none;
+  color: var(--t3); font-size: 18px; line-height: 1;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; transition: color 0.1s, background 0.1s;
+}
+.toast-x:hover { color: var(--t); background: var(--s3); }
