@@ -12,6 +12,7 @@ import { RatingSheet } from "./components/RatingSheet";
 import { GridPageSheet } from "./components/GridPageSheet";
 import { SignIn } from "./components/SignIn";
 import { StatsTab } from "./components/StatsTab";
+import { SetPasswordSheet } from "./components/SetPasswordSheet";
 
 type Tab = "today" | "pages" | "stats";
 
@@ -35,6 +36,7 @@ export default function App() {
   const [ratingPage, setRatingPage] = useState<number | null>(null);
   const [gridPage, setGridPage] = useState<number | null>(null);
   const [statsRefresh, setStatsRefresh] = useState(0);
+  const [setPasswordOpen, setSetPasswordOpen] = useState(false);
 
   const today = useMemo(
     () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
@@ -69,6 +71,7 @@ export default function App() {
         today={today}
         email={session.user.email ?? null}
         onSignOut={() => supabase.auth.signOut()}
+        onSetPassword={() => setSetPasswordOpen(true)}
       />
       <StatPills counts={counts} />
 
@@ -111,6 +114,9 @@ export default function App() {
           onPick={s => onUpdateStatus(gridPage, s)}
           onDismiss={() => setGridPage(null)}
         />
+      )}
+      {setPasswordOpen && (
+        <SetPasswordSheet onDismiss={() => setSetPasswordOpen(false)} />
       )}
     </div>
   );
