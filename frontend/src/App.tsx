@@ -13,6 +13,7 @@ import { GridPageSheet } from "./components/GridPageSheet";
 import { SignIn } from "./components/SignIn";
 import { StatsTab } from "./components/StatsTab";
 import { SetPasswordSheet } from "./components/SetPasswordSheet";
+import { Toast } from "./components/Toast";
 
 type Tab = "today" | "pages" | "stats";
 
@@ -35,6 +36,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const [ratingPage, setRatingPage] = useState<number | null>(null);
   const [gridPage, setGridPage] = useState<number | null>(null);
+  const [toastPage, setToastPage] = useState<number | null>(null);
   const [statsRefresh, setStatsRefresh] = useState(0);
   const [setPasswordOpen, setSetPasswordOpen] = useState(false);
 
@@ -46,7 +48,7 @@ export default function App() {
   const onMarkDone = async (pg: number) => {
     await markDone(pg);
     setStatsRefresh(n => n + 1);
-    setRatingPage(pg);
+    setToastPage(pg);
   };
 
   const onUpdateStatus = async (pg: number, status: Status) => {
@@ -105,6 +107,18 @@ export default function App() {
           pages={pages}
           onPick={s => onUpdateStatus(ratingPage, s)}
           onDismiss={() => setRatingPage(null)}
+        />
+      )}
+      {toastPage !== null && ratingPage === null && (
+        <Toast
+          key={toastPage}
+          page={toastPage}
+          status={pages[toastPage]?.status ?? "new"}
+          onChange={() => {
+            setRatingPage(toastPage);
+            setToastPage(null);
+          }}
+          onDismiss={() => setToastPage(null)}
         />
       )}
       {gridPage !== null && (
