@@ -234,3 +234,39 @@ button { font-family: var(--f); cursor: pointer; }
 @keyframes menu-in {
   from { opacity: 0; transform: translateY(-4px); }
 }
+
+.review-toggle {
+  display: flex; align-items: center; gap: 12px;
+  width: calc(100% - 40px); margin: 18px 20px 4px;
+  padding: 13px 16px;
+  background: var(--s1); border: 1px solid var(--bs);
+  border-radius: 10px;
+  color: var(--t2); font-size: 13px; font-weight: 500;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.review-toggle:hover {
+  background: var(--s2); border-color: var(--b); color: var(--t);
+}
+.review-toggle .review-meta {
+  font-size: 11px; color: var(--t3); font-family: var(--m);
+  white-space: nowrap;
+}
+.review-toggle.ready {
+  border-color: var(--ac); color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 8%, var(--s1));
+}
+.review-toggle.ready:hover {
+  background: color-mix(in srgb, var(--ac) 14%, var(--s1));
+  color: var(--ac); border-color: var(--ac);
+}
+.review-toggle.open {
+  background: none; border: none;
+  border-top: 1px solid var(--bs);
+  border-radius: 0;
+  width: 100%; margin: 18px 0 0;
+  padding: 14px 20px 8px;
+  color: var(--t3); font-size: 11px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.review-toggle.open:hover { background: none; color: var(--t2); }
