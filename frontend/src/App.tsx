@@ -18,12 +18,18 @@ import { Toast } from "./components/Toast";
 type Tab = "today" | "pages" | "stats";
 
 function Loading({ label }: { label: string }) {
+  const showLabel = label && label !== "…";
   return (
-    <div style={{
-      background: "var(--bg)", height: "100vh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <span style={{ color: "var(--t3)", fontSize: 13 }}>{label}</span>
+    <div className="loader-screen">
+      <div className="loader-brand">
+        <span style={{ color: "var(--t3)", fontSize: 11 }}>Al-Baqarah</span>
+        <span style={{ color: "var(--t3)", fontSize: 11 }}>/</span>
+        <span style={{ color: "var(--t2)", fontSize: 11, fontWeight: 500 }}>Hifz Tracker</span>
+      </div>
+      <div className="loader-dots" aria-hidden>
+        <span /><span /><span />
+      </div>
+      {showLabel && <div className="loader-label">{label}</div>}
     </div>
   );
 }
